@@ -71,3 +71,6 @@ docs/_build/
 # Pyenv
 .python-version
 .direnv
+result
+pyvenv.cfg
+lib64

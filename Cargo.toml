@@ -12,12 +12,19 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.20", features = ["extension-module"] }
 pyo3-asyncio = { version = "0.20", features = ["async-std-runtime"] }
 async-std = "1.9"
-termwiz = {git = "https://github.com/wez/wezterm.git", rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a"}
-wezterm-client = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
-wezterm-gui-subcommands = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
-mux = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
-codec = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
-wezterm-input-types = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+# termwiz = {git = "https://github.com/wez/wezterm.git", rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a"}
+# wezterm-client = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+# wezterm-gui-subcommands = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+# mux = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+# codec = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+# wezterm-input-types = { git = "https://github.com/wez/wezterm.git" , rev = "5046fc225992db6ba2ef8812743fadfdfe4b184a" }
+termwiz = {path = "wezterm-src/termwiz"}
+wezterm-client = {path = "wezterm-src/wezterm-client"}
+wezterm-gui-subcommands = {path = "wezterm-src/wezterm-gui-subcommands"}
+mux = {path = "wezterm-src/mux"}
+codec = {path = "wezterm-src/codec"}
+wezterm-input-types = {path = "wezterm-src/wezterm-input-types"}
+
 # wezterm = {path = "wezyterm/wezterm" }
 
 chrono = "=0.4.38"
