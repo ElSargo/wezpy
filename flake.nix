@@ -96,7 +96,8 @@
       };
       formatter = pkgs.alejandra;
       packages = {
-        default = crateWheel;
+        default = lib.pythonPackage;
+        wheel = crateWheel;
         python = pkgs.python311.withPackages (ps: [ (lib.pythonPackage ps) ]);
       };
       devShells.default = pkgs.mkShell {
