@@ -97,6 +97,7 @@
       formatter = pkgs.alejandra;
       packages = {
         default = lib.pythonPackage;
+        test = (lib.pythonPackage pkgs.python311Packages);
         wheel = crateWheel;
         python = pkgs.python311.withPackages (ps: [ (lib.pythonPackage ps) ]);
       };
