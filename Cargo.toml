@@ -24,6 +24,9 @@ wezterm-gui-subcommands = {path = "wezterm-src/wezterm-gui-subcommands"}
 mux = {path = "wezterm-src/mux"}
 codec = {path = "wezterm-src/codec"}
 wezterm-input-types = {path = "wezterm-src/wezterm-input-types"}
+config = {path = "wezterm-src/config"}
+pty = {path = "wezterm-src/pty", package="portable-pty"}
+term = {path = "wezterm-src/term", package="wezterm-term"}
 
 # wezterm = {path = "wezyterm/wezterm" }
 

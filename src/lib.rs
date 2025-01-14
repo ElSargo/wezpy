@@ -1,10 +1,15 @@
 #![allow(non_local_definitions)]
 
 use anyhow::{Context, Result};
-use codec::{ActivatePaneDirection, InputSerial, SendKeyDown};
+use codec::{InputSerial, KillPane, SendKeyDown};
+use config::keyassignment::PaneDirection;
 use mux::tab::PaneEntry;
 use regex::Regex;
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ffi::OsString,
+    sync::Arc,
+};
 use termwiz::input::{KeyCode, KeyEvent};
 use wezterm_client::client::Client;
 use wezterm_gui_subcommands;
@@ -25,6 +30,7 @@ struct WeztermClient {
 }
 
 impl WeztermClient {
+    /// Get the compiled regular expression for a given pattern, caching it if not prevoiusly present
     async fn get_regex(&self, pattern: Option<String>) -> Result<Option<Arc<Regex>>> {
         let Some(pattern) = pattern else {
             return Ok(None);
@@ -91,7 +97,7 @@ impl WeztermClient {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 0)
+            navigate_dir(&client, PaneDirection::Up)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -101,7 +107,7 @@ impl WeztermClient {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 1)
+            navigate_dir(&client, PaneDirection::Down)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -111,7 +117,7 @@ impl WeztermClient {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 2)
+            navigate_dir(&client, PaneDirection::Left)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -121,7 +127,7 @@ impl WeztermClient {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 3)
+            navigate_dir(&client, PaneDirection::Right)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -131,17 +137,177 @@ impl WeztermClient {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 4)
+            navigate_dir(&client, PaneDirection::Next)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
     }
 
-    fn navigate_previous<'a>(&self, py: Python<'a>) -> Result<&'a PyAny, PyErr> {
+    fn navigate_prev<'a>(&self, py: Python<'a>) -> Result<&'a PyAny, PyErr> {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
-            navigate_dir(&client, 5)
+            navigate_dir(&client, PaneDirection::Prev)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn navigate_direction<'a>(
+        &self,
+        py: Python<'a>,
+        direction: String,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+            let direction = PaneDirection::direction_from_str(&direction)
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+
+            navigate_dir(&client, direction)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_up<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Up)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_down<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Down)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_left<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Left)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_right<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Right)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_next<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Next)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction_prev<'a>(
+        &self,
+        py: Python<'a>,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, PaneDirection::Prev)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    fn get_pane_in_direction<'a>(
+        &self,
+        py: Python<'a>,
+        direction: String,
+        pane_id: Option<usize>,
+    ) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+            let direction = PaneDirection::direction_from_str(&direction)
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+
+            let pane_id = client
+                .connection
+                .resolve_pane_id(pane_id)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))?;
+            get_pane_in_direction(&client, pane_id, direction)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -157,6 +323,7 @@ impl WeztermClient {
         })
     }
 
+    // rpc!(set_focused_pane_id, SetFocusedPane, UnitResponse);
     fn focus_pane<'a>(&self, py: Python<'a>, pane_id: usize) -> Result<&'a PyAny, PyErr> {
         let client = self.clone();
         pyo3_asyncio::async_std::future_into_py(py, async move {
@@ -167,6 +334,7 @@ impl WeztermClient {
         })
     }
 
+    // rpc!(write_to_pane, WriteToPane, UnitResponse);
     fn write_to_pane<'a>(
         &self,
         py: Python<'a>,
@@ -202,6 +370,7 @@ impl WeztermClient {
         })
     }
 
+    // rpc!(send_paste, SendPaste, UnitResponse);
     fn send_paste<'a>(
         &self,
         py: Python<'a>,
@@ -212,6 +381,17 @@ impl WeztermClient {
         pyo3_asyncio::async_std::future_into_py(py, async move {
             let client = client;
             send_paste(&client, pane_id, data)
+                .await
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
+    // rpc!(set_focused_pane_id, SetFocusedPane, UnitResponse);
+    fn kill_pane<'a>(&self, py: Python<'a>, pane_id: usize) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+            kill_pane(&client, pane_id)
                 .await
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
@@ -237,23 +417,13 @@ async fn current_pane(client: &WeztermClient) -> Result<usize> {
 }
 
 // See PaneDirection for dir code
-async fn navigate_dir(client: &WeztermClient, dir: u8) -> Result<bool> {
-    // client.send_pdu()
-    let pane_id = current_pane(&client).await?;
-
-    client
-        .connection
-        .activate_pane_direction(ActivatePaneDirection {
-            pane_id,
-            direction: unsafe { std::mem::transmute(dir) },
-        })
-        .await
-        .context("Faild to send switch focus command")?;
-
-    async_std::task::sleep(Duration::from_millis(10)).await;
-
-    let new_pane = current_pane(&client).await?;
-    Ok(new_pane != pane_id)
+async fn navigate_dir(client: &WeztermClient, direction: PaneDirection) -> Result<bool> {
+    let id = current_pane(client).await?;
+    if let Some(id) = get_pane_in_direction(client, id, direction).await? {
+        focus_pane(client, id).await?;
+        return Ok(true);
+    }
+    Ok(false)
 }
 
 // , paste: &str
@@ -314,6 +484,20 @@ async fn send_paste(client: &WeztermClient, pane_id: usize, data: String) -> Res
         .await
         .context("Failed to paste")?;
     Ok(())
+}
+
+// rpc!( get_pane_direction, GetPaneDirection, GetPaneDirectionResponse );
+async fn get_pane_in_direction(
+    client: &WeztermClient,
+    pane_id: usize,
+    direction: PaneDirection,
+) -> Result<Option<usize>> {
+    Ok(client
+        .connection
+        .get_pane_direction(codec::GetPaneDirection { pane_id, direction })
+        .await
+        .context("Failed to get pane in direction")?
+        .pane_id)
 }
 
 async fn find_pane(
@@ -384,4 +568,13 @@ fn flatten_panes<'a>(node: &'a mux::tab::PaneNode, result: &mut Vec<&'a PaneEntr
         }
         mux::tab::PaneNode::Leaf(pane_entry) => result.push(pane_entry),
     };
+}
+
+async fn kill_pane(client: &WeztermClient, pane_id: usize) -> Result<()> {
+    client
+        .connection
+        .kill_pane(KillPane { pane_id })
+        .await
+        .context("Failed to kill pane")?;
+    Ok(())
 }

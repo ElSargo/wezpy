@@ -3661,8 +3661,10 @@ dependencies = [
  "async-std",
  "chrono",
  "codec",
+ "config",
  "futures",
  "mux",
+ "portable-pty",
  "pyo3",
  "pyo3-asyncio",
  "regex",
@@ -3670,6 +3672,7 @@ dependencies = [
  "wezterm-client",
  "wezterm-gui-subcommands",
  "wezterm-input-types",
+ "wezterm-term",
 ]
 
 [[package]]
