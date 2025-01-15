@@ -74,3 +74,4 @@ docs/_build/
 result
 pyvenv.cfg
 lib64
+test.py

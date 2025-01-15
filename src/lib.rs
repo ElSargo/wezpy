@@ -1,13 +1,13 @@
 #![allow(non_local_definitions)]
 
 use anyhow::{Context, Result};
+use async_std::prelude::FutureExt;
 use codec::{InputSerial, KillPane, SendKeyDown};
 use config::keyassignment::PaneDirection;
 use mux::tab::PaneEntry;
 use regex::Regex;
 use std::{
-    collections::{BTreeMap, HashMap},
-    ffi::OsString,
+    collections::BTreeMap,
     sync::Arc,
 };
 use termwiz::input::{KeyCode, KeyEvent};
@@ -396,6 +396,18 @@ impl WeztermClient {
                 .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
         })
     }
+
+    fn current_workspace<'a>(&self, py: Python<'a>) -> Result<&'a PyAny, PyErr> {
+        let client = self.clone();
+        pyo3_asyncio::async_std::future_into_py(py, async move {
+            let client = client;
+            current_workspace(&client)
+                .await
+                .context("Error while fetching current workspace")
+                .map_err(|msg| PyErr::new::<PyValueError, _>(msg.to_string()))
+        })
+    }
+
 }
 
 async fn current_pane(client: &WeztermClient) -> Result<usize> {
@@ -577,4 +589,26 @@ async fn kill_pane(client: &WeztermClient, pane_id: usize) -> Result<()> {
         .await
         .context("Failed to kill pane")?;
     Ok(())
+}
+
+async fn current_workspace(client: &WeztermClient) -> Result<String> {
+    let (panes_responce, current_pane) = client
+        .connection
+        .list_panes()
+        .join(client.connection.resolve_pane_id(None))
+        .await;
+
+    let mut panes = vec![];
+    let id = current_pane?;
+    for root in &panes_responce?.tabs {
+        panes.clear();
+        flatten_panes(root, &mut panes);
+
+        for pane in &panes {
+            if pane.pane_id == id {
+                return Ok(pane.workspace.clone());
+            }
+        }
+    }
+    anyhow::bail!("No active workspace")
 }
